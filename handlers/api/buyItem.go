@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"root/lib/errs"
@@ -25,7 +24,7 @@ func (h *Handlers) BuyItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.shoppingService.Shop(context.Background(), u.ID, item)
+	err := h.shoppingService.Shop(r.Context(), u.ID, item)
 
 	if err != nil && errors.Is(err, errs.NotEnoughMoney) {
 		responser.SendHttpError(w, err.Error(), http.StatusBadRequest)

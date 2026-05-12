@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"root/lib/responser"
@@ -19,7 +18,7 @@ func (h *Handlers) Info(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ua, err := h.userinfoService.Activity(context.Background(), u.ID)
+	ua, err := h.userinfoService.Activity(r.Context(), u.ID)
 
 	if err != nil && err == pgx.ErrNoRows {
 		responser.SendHttpError(w, "user don't exists", http.StatusBadRequest)
