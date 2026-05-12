@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"root/lib/errs"
@@ -22,10 +23,10 @@ func NewUserRepo(pgCl *postgres.Client) *PsgRepo {
 	}
 }
 
-func (pr *PsgRepo) CreateUser(user *models.User) error {
+func (pr *PsgRepo) CreateUser(ctx context.Context, user *models.User) error {
 	q := psgqueries.CreateUser
 
-	if err := pr.pgCl.DbPool.QueryRow(pr.pgCl.Ctx, q, user.Username, user.Password, user.Balance).Scan(&user.ID); err != nil {
+	if err := pr.pgCl.DbPool.QueryRow(ctx, q, user.Username, user.Password, user.Balance).Scan(&user.ID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.Is(err, pgErr) {
 			pgErr = err.(*pgconn.PgError)
@@ -38,17 +39,17 @@ func (pr *PsgRepo) CreateUser(user *models.User) error {
 	return nil
 }
 
-func (pr *PsgRepo) GetUserByName(u *models.User) error {
+func (pr *PsgRepo) GetUserByName(ctx context.Context, u *models.User) error {
 	q := psgqueries.GetUserByName
 
-	if err := pr.pgCl.DbPool.QueryRow(pr.pgCl.Ctx, q, u.Username).Scan(&u.ID, &u.Password, &u.Balance); err != nil {
+	if err := pr.pgCl.DbPool.QueryRow(ctx, q, u.Username).Scan(&u.ID, &u.Password, &u.Balance); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (pr *PsgRepo) GetAllActivity(id int) (*models.UserActivity, error) {
+func (pr *PsgRepo) GetAllActivity(ctx context.Context, id int) (*models.UserActivity, error) {
 	const itemsInstore = 12
 	ua := models.UserActivity{
 		Coins:       0,
@@ -57,7 +58,7 @@ func (pr *PsgRepo) GetAllActivity(id int) (*models.UserActivity, error) {
 	}
 	qBal := psgqueries.UserBalanceById
 
-	if err := pr.pgCl.DbPool.QueryRow(pr.pgCl.Ctx, qBal, id).Scan(&ua.Coins); err != nil {
+	if err := pr.pgCl.DbPool.QueryRow(ctx, qBal, id).Scan(&ua.Coins); err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok {
 			newErr := fmt.Errorf("Ошибка базы данных: код - %v, сообщение - %v, детали - %v", pgErr.Code, pgErr.Message, pgErr.Detail)
 			fmt.Println(newErr)
@@ -68,7 +69,7 @@ func (pr *PsgRepo) GetAllActivity(id int) (*models.UserActivity, error) {
 
 	qInvent := psgqueries.MerchNameCntById
 
-	rows, err := pr.pgCl.DbPool.Query(pr.pgCl.Ctx, qInvent, id)
+	rows, err := pr.pgCl.DbPool.Query(ctx, qInvent, id)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func (pr *PsgRepo) GetAllActivity(id int) (*models.UserActivity, error) {
 
 	qFrom := psgqueries.GetterNameAmountById
 
-	rows, err = pr.pgCl.DbPool.Query(pr.pgCl.Ctx, qFrom, id)
+	rows, err = pr.pgCl.DbPool.Query(ctx, qFrom, id)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (pr *PsgRepo) GetAllActivity(id int) (*models.UserActivity, error) {
 
 	qTo := psgqueries.SenderNameAmountById
 
-	rows, err = pr.pgCl.DbPool.Query(pr.pgCl.Ctx, qTo, id)
+	rows, err = pr.pgCl.DbPool.Query(ctx, qTo, id)
 	if err != nil {
 		return nil, err
 	}
@@ -142,39 +143,39 @@ func (pr *PsgRepo) GetAllActivity(id int) (*models.UserActivity, error) {
 	return &ua, nil
 }
 
-func (pr *PsgRepo) BuyItem(id int, item string) error {
+func (pr *PsgRepo) BuyItem(ctx context.Context, id int, item string) error {
 
-	tx, err := pr.pgCl.DbPool.BeginTx(pr.pgCl.Ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	tx, err := pr.pgCl.DbPool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(pr.pgCl.Ctx)
+	defer tx.Rollback(ctx)
 
 	q := psgqueries.MerchPriceIdByName
 
 	var price int
 	var idMerch int
 
-	if err := tx.QueryRow(pr.pgCl.Ctx, q, item).Scan(&price, &idMerch); err != nil {
+	if err := tx.QueryRow(ctx, q, item).Scan(&price, &idMerch); err != nil {
 		return err
 	}
 
 	q = psgqueries.MinusUserBalanceById
 
-	if pgComm, err := tx.Exec(pr.pgCl.Ctx, q, price, id); err != nil || pgComm.RowsAffected() == 0 {
+	if pgComm, err := tx.Exec(ctx, q, price, id); err != nil || pgComm.RowsAffected() == 0 {
 		return errs.NotEnoughMoney
 	}
 
 	q = psgqueries.UpdateCntItem
 
-	ct, err := tx.Exec(pr.pgCl.Ctx, q, id, idMerch)
+	ct, err := tx.Exec(ctx, q, id, idMerch)
 
 	if err != nil || ct.RowsAffected() == 0 {
 		return fmt.Errorf("can't update table bucket: %v", err)
 	}
 
-	err = tx.Commit(pr.pgCl.Ctx)
+	err = tx.Commit(ctx)
 
 	if err != nil {
 		return fmt.Errorf("can't commit transaction: %v", err)
@@ -183,34 +184,34 @@ func (pr *PsgRepo) BuyItem(id int, item string) error {
 	return nil
 }
 
-func (pr *PsgRepo) SendCoins(fromId int, toId int, amount int) error {
+func (pr *PsgRepo) SendCoins(ctx context.Context, fromId int, toId int, amount int) error {
 
-	tx, err := pr.pgCl.DbPool.BeginTx(pr.pgCl.Ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	tx, err := pr.pgCl.DbPool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(pr.pgCl.Ctx)
+	defer tx.Rollback(ctx)
 
 	q := psgqueries.MinusUserBalanceById
 
-	if cmd, err := tx.Exec(pr.pgCl.Ctx, q, amount, fromId); err != nil || cmd.RowsAffected() == 0 {
+	if cmd, err := tx.Exec(ctx, q, amount, fromId); err != nil || cmd.RowsAffected() == 0 {
 		return errs.NotEnoughMoney
 	}
 
 	q = psgqueries.PlusUserBalanceById
 
-	if cmd, err := tx.Exec(pr.pgCl.Ctx, q, amount, toId); err != nil || cmd.RowsAffected() == 0 {
+	if cmd, err := tx.Exec(ctx, q, amount, toId); err != nil || cmd.RowsAffected() == 0 {
 		return fmt.Errorf("can't get money %v, user_id -%v", err, toId)
 	}
 
 	q = psgqueries.UpdateOperationsHistory
 
-	if cmd, err := tx.Exec(pr.pgCl.Ctx, q, fromId, toId, amount); err != nil || cmd.RowsAffected() == 0 {
+	if cmd, err := tx.Exec(ctx, q, fromId, toId, amount); err != nil || cmd.RowsAffected() == 0 {
 		return fmt.Errorf("can't memory operation %v", err)
 	}
 
-	if err := tx.Commit(pr.pgCl.Ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("can't commit transaction of sendCoins: %v", err)
 	}
 

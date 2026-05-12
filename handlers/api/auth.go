@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -34,7 +35,7 @@ func (h *Handlers) Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwt, err := h.loginService.Login(name, password)
+	jwt, err := h.loginService.Login(context.Background(), name, password)
 
 	if errors.Is(err, errs.WrongPassword) {
 		responser.SendHttpError(w, err.Error(), http.StatusUnauthorized)

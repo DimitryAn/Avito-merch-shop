@@ -1,11 +1,12 @@
 package userInfo
 
 import (
+	"context"
 	"root/models"
 )
 
 type repopository interface {
-	GetAllActivity(id int) (*models.UserActivity, error)
+	GetAllActivity(ctx context.Context, id int) (*models.UserActivity, error)
 }
 
 type UserInfoService struct {
@@ -18,6 +19,6 @@ func NewUsernInfoService(repo repopository) *UserInfoService {
 	}
 }
 
-func (ui *UserInfoService) Activity(id int) (*models.UserActivity, error) {
-	return ui.repo.GetAllActivity(id)
+func (ui *UserInfoService) Activity(ctx context.Context, id int) (*models.UserActivity, error) {
+	return ui.repo.GetAllActivity(ctx, id)
 }

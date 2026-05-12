@@ -1,7 +1,9 @@
 package shopping
 
+import "context"
+
 type repository interface {
-	BuyItem(id int, item string) error
+	BuyItem(ctx context.Context, id int, item string) error
 }
 
 type ShoppingService struct {
@@ -14,6 +16,6 @@ func NewShoppingService(repo repository) *ShoppingService {
 	}
 }
 
-func (sh *ShoppingService) Shop(id int, item string) error {
-	return sh.repo.BuyItem(id, item)
+func (sh *ShoppingService) Shop(ctx context.Context, id int, item string) error {
+	return sh.repo.BuyItem(ctx, id, item)
 }

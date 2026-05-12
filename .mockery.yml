@@ -1,0 +1,16 @@
+all: false
+dir: mocks
+filename: "{{.InterfaceName}}_mock.go"
+force-file-write: true
+formatter: goimports
+generate: true
+include-auto-generated: false
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+recursive: false
+template: testify
+packages:
+  root/services/login:
+    interfaces:
+      repository: {}
+

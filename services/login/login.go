@@ -1,6 +1,7 @@
 package login
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
@@ -22,8 +23,8 @@ const (
 var Secret string
 
 type repository interface {
-	CreateUser(user *models.User) error
-	GetUserByName(u *models.User) error
+	CreateUser(ctx context.Context, user *models.User) error
+	GetUserByName(ctx context.Context, u *models.User) error
 }
 
 type LoginService struct {
@@ -46,7 +47,7 @@ func NewLoginService(repo repository) *LoginService {
 }
 
 // создание пользователя в бд + создание jwt токена + хэш пароля
-func (ls *LoginService) Login(name string, password string) (string, error) {
+func (ls *LoginService) Login(ctx context.Context, name string, password string) (string, error) {
 
 	u := &models.User{
 		Username: name,
@@ -54,14 +55,16 @@ func (ls *LoginService) Login(name string, password string) (string, error) {
 		Balance:  defautBalance,
 	}
 
-	err := ls.repo.GetUserByName(u) // попытка получить пользователя
+	err := ls.repo.GetUserByName(ctx, u) // попытка получить пользователя
 
 	if errors.Is(err, pgx.ErrNoRows) { // если нет пользователя в бд -> создаем
-		err := ls.repo.CreateUser(u)
+		err := ls.repo.CreateUser(ctx, u)
 		if err != nil {
 			return "", err
 		}
-	} else if err != nil || checkHashPassword(u.Password, password) != nil { // был, но пароль не совпал
+	} else if err != nil { // был, но пароль не совпал
+		return "", err
+	} else if checkHashPassword(u.Password, password) != nil { // был, но пароль не совпал
 		return "", errs.WrongPassword
 	}
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -35,7 +36,7 @@ func (h *Handlers) SendCoins(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	err := h.sendCoinsService.SendCoins(u.ID, reqData.ToUser, reqData.Amount)
+	err := h.sendCoinsService.SendCoins(context.Background(), u.ID, reqData.ToUser, reqData.Amount)
 
 	if err != nil && errors.Is(err, errs.NotEnoughMoney) {
 		responser.SendHttpError(w, err.Error(), http.StatusBadRequest)

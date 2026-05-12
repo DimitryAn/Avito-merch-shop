@@ -12,7 +12,6 @@ import (
 
 type Client struct {
 	DbPool *pgxpool.Pool
-	Ctx    context.Context
 }
 
 func NewClient(ctx context.Context, cnf *config.Config) (*Client, error) {
@@ -41,7 +40,7 @@ func NewClient(ctx context.Context, cnf *config.Config) (*Client, error) {
 		log.Fatal("Unable to ping connection pool to postgres")
 	}
 	log.Printf("Success connect to postgres sql, name - %v \n", cnf.DatabaseName)
-	return &Client{dbpool, ctx}, nil
+	return &Client{dbpool}, nil
 }
 
 func makeDsn(cnf *config.Config) string {
